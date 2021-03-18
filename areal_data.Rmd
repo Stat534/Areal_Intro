@@ -1,0 +1,221 @@
+---
+title: "Areal Data Overview"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+library(tidyverse)
+library(ggmap)
+library(knitr)
+library(gtools)
+library(spBayes)
+library(mgcv)
+library(mnormt)
+library(arm)
+library(rstanarm)
+library(rstan)
+library(geojsonio)
+library(leaflet)
+#devtools::install_github("UrbanInstitute/urbnmapr")
+library(urbnmapr)
+```
+
+## Areal Data
+
+Defining features: 
+\vfill
+
+```{r, out.width = "95%", echo = F, fig.align = 'center', fig.cap='source: https://www.politico.com/election-results/2018/montana/'}
+knitr::include_graphics("Tester.png") 
+```
+
+How can spatial information be incorporated with this data structure?
+
+\vfill
+
+
+\vfill
+
+\vfill
+
+
+
+\vfill
+
+
+
+\vfill
+
+
+\vfill
+
+
+
+\vfill
+
+
+\vfill
+
+
+\vfill
+
+\newpage
+
+
+
+
+#### Choropleth Tutorial
+What are the objects `urbnmapr::states` and `urbnmapr::counties`?
+\vfill
+
+
+```{r}
+urbnmapr::states
+```
+
+\vfill
+
+```{r}
+urbnmapr::counties
+```
+\vfill
+
+\newpage
+
+```{r}
+ggplot() + 
+  geom_polygon(data = urbnmapr::states, 
+               mapping = aes(x = long, y = lat, group = group), fill = "grey", color = "white") +
+  coord_map(projection = "mercator") +
+  theme_minimal()
+```
+
+\newpage
+```{r}
+ggplot() + 
+  geom_polygon(data = urbnmapr::counties, 
+               mapping = aes(x = long, y = lat, group = group), fill = "grey", color = "white") +
+  coord_map(projection = "mercator") +
+  theme_minimal()
+```
+
+\newpage
+
+What is `urbnmapr::countydata`?
+
+\vfill
+```{r}
+
+urbnmapr::countydata
+```
+\vfill
+```{r}
+household_data <- left_join(urbnmapr::countydata, urbnmapr::counties, by = "county_fips") 
+```
+\vfill
+\newpage
+
+```{r}
+household_data %>%
+  ggplot(aes(long, lat, group = group, fill = medhhincome)) +
+  geom_polygon(color = NA) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(fill = "Median Household \nIncome") +
+  theme_minimal() +
+  scale_fill_gradient(labels = scales::dollar, 
+                       guide = guide_colorbar(title.position = "top"))
+```
+
+\newpage
+
+```{r}
+countydata %>% 
+  left_join(counties, by = "county_fips") %>% 
+  filter(state_name =="Montana") %>% 
+  ggplot(mapping = aes(long, lat, group = group, fill = medhhincome)) +
+  geom_polygon(color = "black", size = .25) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.5, "in")) +
+  theme_minimal() +
+  labs(fill = "Median Household Income") +
+  scale_fill_gradient(labels = scales::dollar, 
+                       guide = guide_colorbar(title.position = "top"),
+                       low = 'white', high = 'red')
+```
+
+
+\vfill
+
+#### Additional choropleth resources
+
+- [Poverty in Nepal with ggplot](https://medium.com/@anjesh/step-by-step-choropleth-map-in-r-a-case-of-mapping-nepal-7f62a84078d9)
+- [Plotly](https://plot.ly/r/choropleth-maps/#choropleth-maps-in-r)
+- [Crime in Philly](https://cengel.github.io/rspatial/4_Mapping.nb.html)
+- [State and County Population](http://www.bargava.com/Intro-to-Choropleth-using-R/)
+- [Leaflet tutorial](https://rstudio.github.io/leaflet/choropleths.html) for creating choropleths.
+
+\vfill
+
+
+\newpage
+
+#### Proximity Matrix
+Similar to the distance matrix with point-reference data, a proximity matrix $W$ is used to model areal data.
+
+\vfill
+
+
+
+\vfill
+
+
+
+\vfill
+
+#### Grid Example
+Create an adjacency matrix with diagonal neigbors
+
+\vfill
+
+Create an adjacency matrix without diagonal neigbors
+
+```{r, echo = F}
+d=data.frame(xmin=c(0.5,0.5,0.5,-.5,-.5,-.5,-1.5,-1.5,-1.5),
+             xmax=c(1.5,1.5,1.5,.5,.5,.5,-.5,-.5,-.5),
+             ymin=rep(c(.5,-.5,-1.5), 3), 
+             ymax=rep(c(1.5,.5,-.5), 3),
+             id=c(1,2,3,4,5,6,7,8,9))
+ggplot() + 
+  scale_x_continuous(name="x") + 
+  scale_y_continuous(name="y") +
+  geom_rect(data=d, mapping=aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax), color="black", alpha=0.05) +
+  geom_text(data=d, aes(x=xmin+(xmax-xmin)/2, y=ymin+(ymax-ymin)/2, label=id), size=4) +
+  theme_minimal()
+
+```
+
+\newpage
+
+## Spatial Association
+
+There are two common statistics used for assessing spatial association:
+Moran's I and Geary's C.
+
+\vfill
+
+Moran's I
+$$I =\frac{n \sum_i \sum_j w_{ij} (Y_i - \bar{Y})(Y_j -\bar{Y})}{(\sum_{i\neq j \;w_{ij}})\sum_i(Y_i - \bar{Y})^2}$$
+
+\vfill
+
+
+\vfill
+
+Geary's C
+$$C=\frac{(n-1)\sum_i \sum_j w_{ij}(Y_i-Y_j)^2}{2(\sum_{i \neq j \; w_{ij}})\sum_i (Y_i - \bar{Y})^2}$$
+
+\vfill
+
+\vfill
